@@ -40,30 +40,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "query_deals_board",
-            "description": (
-                "Fetch and analyse deals / pipeline data from the Monday.com Deals board. "
-                "Makes a LIVE API call.  Use for deal pipeline, values, stages, sectors, "
-                "probabilities, win rates, and sales performance."
-            ),
+            "description": "Query deals pipeline data. Use for pipeline, values, stages, sectors, win rates.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "sector_filter": {
-                        "type": "string",
-                        "description": "Filter by sector: Mining, Renewables, Powerline, Railways, Construction, Tender, Others, DSP",
-                    },
-                    "status_filter": {
-                        "type": "string",
-                        "description": "Filter by deal status: Open, Won, Dead, On Hold",
-                    },
-                    "stage_filter": {
-                        "type": "string",
-                        "description": "Filter by deal stage keyword, e.g. 'Lead', 'Proposal', 'Won', 'Negotiations'",
-                    },
-                    "time_period": {
-                        "type": "string",
-                        "description": "Time filter: 'Q1 2026', 'this_quarter', 'last_quarter', 'this_year', '2025'",
-                    },
+                    "sector_filter": {"type": "string"},
+                    "status_filter": {"type": "string"},
+                    "stage_filter": {"type": "string"},
+                    "time_period": {"type": "string"},
                 },
             },
         },
@@ -72,26 +56,13 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "query_work_orders_board",
-            "description": (
-                "Fetch and analyse work-order data from the Monday.com Work Orders board. "
-                "Makes a LIVE API call.  Use for revenue, billing, collections, receivables, "
-                "execution status, and operational metrics."
-            ),
+            "description": "Query work orders data. Use for revenue, billing, collections, execution status.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "sector_filter": {
-                        "type": "string",
-                        "description": "Filter by sector: Mining, Renewables, Powerline, Railways, Construction",
-                    },
-                    "execution_status_filter": {
-                        "type": "string",
-                        "description": "Filter: Completed, Ongoing, Not Started, Pause / struck",
-                    },
-                    "billing_status_filter": {
-                        "type": "string",
-                        "description": "Filter: Billed, Partially Billed, Not Billable, Stuck, Update Required",
-                    },
+                    "sector_filter": {"type": "string"},
+                    "execution_status_filter": {"type": "string"},
+                    "billing_status_filter": {"type": "string"},
                 },
             },
         },
@@ -100,26 +71,15 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "cross_board_analysis",
-            "description": (
-                "Analyse data across BOTH Deals and Work Orders boards (two LIVE API calls). "
-                "Use when the question spans pipeline and execution / revenue."
-            ),
+            "description": "Analyse across both boards. Use for pipeline vs revenue, sector comparison, conversion.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "analysis_focus": {
                         "type": "string",
                         "enum": ["pipeline_vs_revenue", "sector_comparison", "conversion"],
-                        "description": (
-                            "pipeline_vs_revenue = pipeline vs actual revenue; "
-                            "sector_comparison = sector performance across boards; "
-                            "conversion = deal-to-execution funnel"
-                        ),
                     },
-                    "sector_filter": {
-                        "type": "string",
-                        "description": "Optional sector filter applied to both boards",
-                    },
+                    "sector_filter": {"type": "string"},
                 },
                 "required": ["analysis_focus"],
             },
