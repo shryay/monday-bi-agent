@@ -256,56 +256,82 @@ elif chat_input:
 else:
     prompt = None
 
+def _build_fallback_chain(primary_provider, primary_model, primary_key, primary_base_url):
+    """Build an ordered list of (provider, model, key, base_url) to try."""
+    chain = [(primary_provider, primary_model, primary_key, primary_base_url)]
+    for pname, pcfg in PROVIDERS.items():
+        if pname == primary_provider:
+            continue
+        key = _resolve(pcfg["env_key"])
+        if key:
+            chain.append((pname, pcfg["models"][0], key, pcfg["base_url"]))
+    return chain
+
+
+def _is_rate_limit(exc_str: str) -> bool:
+    return "rate_limit" in exc_str or "429" in exc_str
+
+
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="🧑‍💼"):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="📊"):
-        with st.spinner("Querying Monday.com boards…"):
-            try:
-                agent = BIAgent(
-                    openai_api_key=llm_key,
-                    monday_client=MondayClient(monday_token),
-                    deals_board_id=deals_board_id,
-                    wo_board_id=wo_board_id,
-                    model=_model,
-                    base_url=llm_base_url,
-                )
-                history = [
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages[:-1]
-                ]
-                answer, traces = agent.process_query(prompt, history)
+        fallbacks = _build_fallback_chain(_provider, _model, llm_key, llm_base_url)
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state.messages[:-1]
+        ]
 
-                st.markdown(answer)
-
-                if traces:
-                    with st.expander(f"🔍 Action Trace — {len(traces)} steps"):
-                        for idx, t in enumerate(traces, 1):
-                            label = t.get("step", t.get("tool", t.get("action", "Processing")))
-                            st.markdown(f"**Step {idx}** · {label}")
-                            detail = {k: v for k, v in t.items() if k != "step"}
-                            if detail:
-                                st.json(detail)
-
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": answer, "traces": traces}
-                )
-
-            except Exception as exc:
-                exc_str = str(exc)
-                if "rate_limit" in exc_str or ("429" in exc_str and "token" in exc_str.lower()):
-                    err = (
-                        f"**Rate limit reached** on **{_provider}** free tier. "
-                        "You can:\n"
-                        "- Wait a few minutes and try again\n"
-                        "- Switch to a different provider/model in the sidebar\n"
+        answer, traces, last_err = None, [], None
+        for prov_name, prov_model, prov_key, prov_base in fallbacks:
+            with st.spinner(f"Querying via {prov_name} ({prov_model})…"):
+                try:
+                    agent = BIAgent(
+                        openai_api_key=prov_key,
+                        monday_client=MondayClient(monday_token),
+                        deals_board_id=deals_board_id,
+                        wo_board_id=wo_board_id,
+                        model=prov_model,
+                        base_url=prov_base,
                     )
-                    st.warning(err)
-                else:
-                    err = f"**{_provider}** error: {exc}"
-                    st.error(err)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": err, "traces": []}
+                    answer, traces = agent.process_query(prompt, history)
+                    break
+                except Exception as exc:
+                    last_err = (prov_name, exc)
+                    if _is_rate_limit(str(exc)):
+                        st.caption(f"⚠️ {prov_name} rate-limited — trying next provider…")
+                        continue
+                    last_err = (prov_name, exc)
+                    break
+
+        if answer:
+            st.markdown(answer)
+            if traces:
+                with st.expander(f"🔍 Action Trace — {len(traces)} steps"):
+                    for idx, t in enumerate(traces, 1):
+                        label = t.get("step", t.get("tool", t.get("action", "Processing")))
+                        st.markdown(f"**Step {idx}** · {label}")
+                        detail = {k: v for k, v in t.items() if k != "step"}
+                        if detail:
+                            st.json(detail)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": answer, "traces": traces}
+            )
+        else:
+            prov_name, exc = last_err
+            exc_str = str(exc)
+            if _is_rate_limit(exc_str):
+                err = (
+                    "**All providers rate-limited.** Free tiers have daily token caps.\n"
+                    "- Wait ~15 minutes for limits to reset\n"
+                    "- Or add a paid OpenAI key in the sidebar"
                 )
+                st.warning(err)
+            else:
+                err = f"**{prov_name}** error: {exc}"
+                st.error(err)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": err, "traces": []}
+            )
