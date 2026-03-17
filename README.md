@@ -8,7 +8,7 @@ Built for the Skylark Drones AI Engineer technical assessment.
 
 ## Live Demo
 
-**Hosted Prototype:** [coming soon — Streamlit Cloud URL]
+**Hosted Prototype:** [monday-bi-agent-shreya.streamlit.app](https://monday-bi-agent-shreya.streamlit.app/)
 
 **Monday.com Boards:**
 - [Deals Pipeline](https://connectshreyaupadhyays-team.monday.com/boards/5027263770)
