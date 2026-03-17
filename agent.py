@@ -316,13 +316,17 @@ class BIAgent:
         if "failed_generation" not in err_str and "tool_use_failed" not in err_str:
             return None
         try:
+            failed = ""
             body = getattr(error, "body", None)
             if isinstance(body, dict):
-                failed = body.get("error", {}).get("failed_generation", "")
-            else:
+                failed = (
+                    body.get("error", {}).get("failed_generation", "")
+                    or body.get("failed_generation", "")
+                )
+            if not failed:
                 failed = err_str
             match = re.search(
-                r"<function=(\w+)[,\s]*(\{[^}]*\})\s*</function>",
+                r"<function=(\w+)[,\s]*(\{.*?\})\s*</function>",
                 failed,
                 re.DOTALL,
             )
