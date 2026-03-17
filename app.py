@@ -80,10 +80,9 @@ st.markdown("""
         color: #888;
     }
 
-    /* Hide Streamlit branding */
+    /* Hide Streamlit branding but keep sidebar toggle */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
 
     /* Sidebar clean */
     [data-testid="stSidebar"] {
