@@ -273,8 +273,8 @@ def _build_fallback_chain(primary_provider, primary_model, primary_key, primary_
     return chain
 
 
-def _is_rate_limit(exc_str: str) -> bool:
-    return "rate_limit" in exc_str or "429" in exc_str
+def _should_fallback(exc_str: str) -> bool:
+    return "rate_limit" in exc_str or "429" in exc_str or "503" in exc_str or "UNAVAILABLE" in exc_str
 
 
 if prompt:
@@ -305,7 +305,7 @@ if prompt:
                     break
                 except Exception as exc:
                     last_err = (prov_name, exc)
-                    if _is_rate_limit(str(exc)):
+                    if _should_fallback(str(exc)):
                         st.caption(f"⚠️ {prov_name} rate-limited — trying next provider…")
                         continue
                     last_err = (prov_name, exc)
@@ -327,7 +327,7 @@ if prompt:
         else:
             prov_name, exc = last_err
             exc_str = str(exc)
-            if _is_rate_limit(exc_str):
+            if _should_fallback(exc_str):
                 err = (
                     "**All providers rate-limited.** Free tiers have daily token caps.\n"
                     "- Wait ~15 minutes for limits to reset\n"
