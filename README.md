@@ -6,6 +6,19 @@ Built for the Skylark Drones AI Engineer technical assessment.
 
 ---
 
+## Screenshots
+
+### Revenue Breakdown by Sector
+![Revenue Breakdown](screenshots/revenue_breakdown_1.png)
+
+### Insights & Recommendations
+![Insights](screenshots/revenue_breakdown_2.png)
+
+### Action Trace Visibility
+![Action Trace](screenshots/action_trace.png)
+
+---
+
 ## Live Demo
 
 **Hosted Prototype:** [monday-bi-agent-shreya.streamlit.app](https://monday-bi-agent-shreya.streamlit.app/)
@@ -85,7 +98,13 @@ Built for the Skylark Drones AI Engineer technical assessment.
 - Supports multi-tool orchestration (e.g., querying both boards for a sector comparison)
 - Automatic recovery from malformed tool calls (Groq/Llama compatibility)
 
-### 3. Messy Data Resilience
+### 3. Automatic Provider Fallback
+- Supports 4 LLM providers: **Groq**, **OpenRouter**, **Google Gemini**, **OpenAI**
+- If the primary provider is rate-limited or unavailable, automatically tries the next one
+- Shows fallback status in real-time (e.g., "Groq rate-limited — trying next provider…")
+- Graceful "all providers exhausted" message when every provider fails
+
+### 4. Messy Data Resilience
 - Handles missing/null values across all columns
 - Normalizes inconsistent date formats (ISO, DD/MM/YYYY, etc.)
 - Filters out duplicate header rows embedded in the data
@@ -93,25 +112,25 @@ Built for the Skylark Drones AI Engineer technical assessment.
 - Fuzzy column-name matching (tolerates minor naming differences from Monday.com)
 - Reports data quality scores and caveats in every response
 
-### 4. Founder-Level Insights
+### 5. Founder-Level Insights
 - Provides analysis across revenue, pipeline health, sector performance, and billing
 - Highlights **risks**, **opportunities**, and **recommendations** — not just raw numbers
 - Formats monetary values in Indian notation (₹ Cr / ₹ L)
 - Cross-board analysis connects deal pipeline to work order execution
 
-### 5. Token-Efficient Design
+### 6. Token-Efficient Design
 - Tool output truncation (6K char cap) keeps LLM calls lean
 - Compact system prompt (~120 tokens vs typical ~350)
 - Conversation history limited to last 4 exchanges to reduce context size
 - Graceful rate-limit handling with user-friendly messages and provider-switching guidance
 
-### 6. Conversational Interface
+### 7. Conversational Interface
 - Natural language query understanding
 - Follow-up question support with conversation memory
 - Clickable starter questions for quick exploration
 - Clarifying questions when the query is ambiguous
 
-### 7. Action Trace Visibility
+### 8. Action Trace Visibility
 - Expandable trace panel on every response
 - Shows: which tools the AI called, API response times, rows fetched, filters applied
 - Full transparency into the agent's decision-making process
@@ -123,8 +142,8 @@ Built for the Skylark Drones AI Engineer technical assessment.
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
 | **UI** | Streamlit | Fastest path to a production chat interface with zero frontend code |
-| **AI Engine** | Groq (Llama 3.3 70B) | Free tier, OpenAI-compatible API, strong tool-calling support |
-| **AI Engine (alt)** | Google Gemini / OpenAI GPT-4o | Supported as drop-in alternatives via provider selector |
+| **AI Engine (primary)** | Google Gemini 2.5 Flash | Free tier, excellent tool-calling, high rate limits |
+| **AI Engine (fallback)** | Groq (Llama 3.3 70B) / OpenRouter / OpenAI | Auto-fallback chain across 4 providers for maximum uptime |
 | **Data Source** | Monday.com GraphQL API | Live integration as required; cursor-based pagination |
 | **Data Processing** | pandas | Industry standard for tabular data cleaning and aggregation |
 | **Deployment** | Streamlit Cloud | Free hosting with secrets management, one-click deploy |
@@ -144,6 +163,9 @@ monday_bi_agent/
 ├── .gitignore             # Keeps .env and caches out of version control
 ├── .streamlit/
 │   └── config.toml        # Streamlit theme and server config
+├── screenshots/           # App screenshots for documentation
+├── Decision_Log.md        # Architecture and trade-off decisions
+├── Decision_Log.pdf       # PDF version of decision log
 └── README.md              # This file
 ```
 
@@ -159,7 +181,7 @@ monday_bi_agent/
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/your-username/monday-bi-agent.git
+git clone https://github.com/shryay/monday-bi-agent.git
 cd monday-bi-agent
 pip install -r requirements.txt
 ```
@@ -248,7 +270,7 @@ The agent handles all these issues automatically and reports data quality caveat
 
 4. **Summary-first architecture** — Raw board data is cleaned and summarized into statistics before reaching the LLM. This produces more focused insights and avoids token limits.
 
-5. **Multi-provider support** — Groq (free), Google Gemini (free), and OpenAI (paid) are all supported via an OpenAI-compatible client interface with a single provider dropdown.
+5. **Automatic provider fallback** — The app tries up to 4 LLM providers (Groq → OpenRouter → Gemini → OpenAI) in sequence. If one is rate-limited or unavailable (429/503), it automatically falls through to the next, maximizing uptime on free tiers.
 
 6. **Automatic tool-call recovery** — Llama models occasionally generate malformed tool calls. The agent catches these, parses the intended function from the error, executes it, and continues seamlessly.
 

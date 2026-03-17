@@ -7,13 +7,13 @@
 memory, and one-click deployment to Streamlit Cloud. For a 6-hour timeline, this eliminated the
 overhead of a separate frontend/backend setup while still delivering a polished, interactive prototype.
 
-**Groq (Llama 3.3 70B)** serves as the LLM engine via an OpenAI-compatible API. This choice was
-driven by three factors: (a) free tier with 14,400 requests/day, (b) strong tool-calling support that
-lets the AI autonomously decide which Monday.com boards to query, and (c) drop-in compatibility
-with OpenAI's Python SDK — meaning the system also supports GPT-4o and Google Gemini with a
-single provider dropdown. The tool-calling approach (3 defined functions) is the core of the agent:
-the LLM interprets the user's question, selects the right tool with appropriate filters, and generates
-insights from the returned data — all without hardcoded query logic.
+**Google Gemini 2.5 Flash** serves as the primary LLM engine via Google's OpenAI-compatible API.
+The system supports 4 providers through a unified interface: Groq (Llama 3.3 70B), OpenRouter,
+Google Gemini, and OpenAI GPT-4o. An automatic fallback chain tries each provider in sequence
+when one is rate-limited or unavailable (429/503 errors), maximizing uptime on free tiers. The
+tool-calling approach (3 defined functions) is the core of the agent: the LLM interprets the user's
+question, selects the right tool with appropriate filters, and generates insights from the returned
+data -- all without hardcoded query logic.
 
 **Monday.com GraphQL API** with cursor-based pagination handles board data fetching. Each user
 query triggers fresh API calls, ensuring the evaluator always sees live data. Within a single query,
@@ -57,9 +57,11 @@ catches these errors, parses the intended function and arguments from the error 
 executes the tool, and feeds the result back to the LLM. This makes the system significantly more
 robust in production without requiring a paid model.
 
-**Multi-provider support over single-provider optimization.** Supporting Groq, Gemini, and OpenAI
-through a unified interface adds slight complexity but demonstrates extensibility and allows the
-evaluator to test with their preferred provider.
+**Automatic provider fallback over manual switching.** The app tries up to 4 LLM providers in
+sequence (Groq, OpenRouter, Gemini, OpenAI). If one returns a 429 (rate limit) or 503 (overload),
+it automatically falls through to the next, showing real-time status messages. This was critical
+because free-tier providers have strict daily token caps (Groq: 100K tokens/day) and the fallback
+ensures the evaluator always gets a response without manual intervention.
 
 ## 4. What I Would Improve With More Time
 
