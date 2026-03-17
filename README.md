@@ -63,7 +63,7 @@ Built for the Skylark Drones AI Engineer technical assessment.
 **Flow:**
 1. User asks a natural language question (e.g., *"How's our pipeline for Mining?"*)
 2. The LLM interprets the question and decides which Monday.com boards to query
-3. Live GraphQL API calls fetch the latest data (no caching, no preloading)
+3. Live GraphQL API calls fetch the latest data (per-request caching avoids redundant calls)
 4. Data processor cleans inconsistencies — nulls, duplicate headers, format mismatches
 5. Cleaned data is summarized into compact statistics
 6. LLM generates a conversational insight with risks, opportunities, and recommendations
@@ -74,7 +74,8 @@ Built for the Skylark Drones AI Engineer technical assessment.
 ## Key Features
 
 ### 1. Live Monday.com Integration
-- Every query triggers fresh GraphQL API calls — **zero caching**
+- Every query triggers fresh GraphQL API calls — no stale data
+- Per-request board caching avoids redundant API calls when multiple tools query the same board
 - Cursor-based pagination handles boards of any size
 - Connection validation on startup
 
@@ -98,13 +99,19 @@ Built for the Skylark Drones AI Engineer technical assessment.
 - Formats monetary values in Indian notation (₹ Cr / ₹ L)
 - Cross-board analysis connects deal pipeline to work order execution
 
-### 5. Conversational Interface
+### 5. Token-Efficient Design
+- Tool output truncation (6K char cap) keeps LLM calls lean
+- Compact system prompt (~120 tokens vs typical ~350)
+- Conversation history limited to last 4 exchanges to reduce context size
+- Graceful rate-limit handling with user-friendly messages and provider-switching guidance
+
+### 6. Conversational Interface
 - Natural language query understanding
-- Follow-up question support with conversation memory (last 10 messages)
+- Follow-up question support with conversation memory
 - Clickable starter questions for quick exploration
 - Clarifying questions when the query is ambiguous
 
-### 6. Action Trace Visibility
+### 7. Action Trace Visibility
 - Expandable trace panel on every response
 - Shows: which tools the AI called, API response times, rows fetched, filters applied
 - Full transparency into the agent's decision-making process
@@ -233,17 +240,19 @@ The agent handles all these issues automatically and reports data quality caveat
 
 ## Design Decisions
 
-1. **Live API calls per query** — No caching or preloading. Every question triggers fresh Monday.com API calls, ensuring data is always current.
+1. **Live API calls with per-request caching** — Every new question triggers fresh Monday.com API calls, ensuring current data. Within a single query, board data is cached so multi-tool calls don't re-fetch.
 
 2. **LLM tool-calling over prompt stuffing** — Instead of dumping raw data into the prompt, the agent uses structured function calls. This keeps token usage low and makes the system extensible.
 
-3. **Summary-first architecture** — Raw board data is cleaned and summarized into statistics before reaching the LLM. This produces more focused insights and avoids token limits.
+3. **Token-efficient pipeline** — Compact system prompt (~120 tokens), tool output truncation (6K char cap), and limited conversation history (~4 messages) reduce per-query token usage by ~60%, maximizing queries within free-tier limits.
 
-4. **Multi-provider support** — Groq (free), Google Gemini (free), and OpenAI (paid) are all supported via an OpenAI-compatible client interface with a single provider dropdown.
+4. **Summary-first architecture** — Raw board data is cleaned and summarized into statistics before reaching the LLM. This produces more focused insights and avoids token limits.
 
-5. **Automatic tool-call recovery** — Llama models occasionally generate malformed tool calls. The agent catches these, parses the intended function from the error, executes it, and continues seamlessly.
+5. **Multi-provider support** — Groq (free), Google Gemini (free), and OpenAI (paid) are all supported via an OpenAI-compatible client interface with a single provider dropdown.
 
-6. **Keyword-based column matching** — Monday.com column titles may differ from original Excel headers. The processor uses fuzzy keyword matching to map columns reliably.
+6. **Automatic tool-call recovery** — Llama models occasionally generate malformed tool calls. The agent catches these, parses the intended function from the error, executes it, and continues seamlessly.
+
+7. **Keyword-based column matching** — Monday.com column titles may differ from original Excel headers. The processor uses fuzzy keyword matching to map columns reliably.
 
 ---
 
@@ -255,5 +264,5 @@ The agent handles all these issues automatically and reports data quality caveat
 | "Board not found" | Check board ID from the URL |
 | Empty results | Verify data was imported correctly |
 | Slow responses | Switch to a faster model in the sidebar |
-| Rate limit errors | Wait 60 seconds and retry |
+| Rate limit errors | Switch provider in sidebar, or wait for limit reset |
 | Tool call failures | The agent auto-recovers; if persistent, try rephrasing |

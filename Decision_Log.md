@@ -16,9 +16,10 @@ the LLM interprets the user's question, selects the right tool with appropriate 
 insights from the returned data — all without hardcoded query logic.
 
 **Monday.com GraphQL API** with cursor-based pagination handles board data fetching. Each user
-query triggers fresh API calls (no caching), ensuring the evaluator always sees live data. The
-GraphQL schema allows fetching column definitions and item data in a single request, minimizing
-round trips.
+query triggers fresh API calls, ensuring the evaluator always sees live data. Within a single query,
+board data is cached per-request so that multi-tool orchestration (e.g., cross-board analysis) does
+not re-fetch the same board. The GraphQL schema allows fetching column definitions and item data
+in a single request, minimizing round trips.
 
 **pandas** handles all data cleaning — null detection, date normalization, number parsing, and
 summary aggregation. A keyword-based column mapper tolerates naming differences between the
@@ -42,11 +43,13 @@ are inconsistent across columns. Rather than failing silently, the agent takes a
 
 ## 3. Key Trade-offs
 
-**Summary-first vs raw-data approach.** Instead of sending raw board data to the LLM (expensive
-and token-limited), the agent pre-processes data into structured summaries — status breakdowns,
-sector aggregations, pipeline metrics. This reduces token usage by ~90% and produces more
-focused insights. The trade-off is that the LLM cannot run ad-hoc calculations on raw rows, but for
-founder-level questions, pre-computed aggregates cover the vast majority of use cases.
+**Token-efficient pipeline.** Free-tier LLM providers impose strict token limits (Groq: 100K tokens/day).
+To maximize queries per day, the agent uses four strategies: (a) a compact system prompt (~120
+tokens vs typical ~350), (b) tool output truncation at 6K characters so the LLM receives summaries,
+not raw dumps, (c) conversation history limited to the last 4 exchanges, and (d) per-request board
+caching to avoid redundant API calls. Together these reduce per-query token usage by ~60%.
+The trade-off is that the LLM cannot run ad-hoc calculations on raw rows, but for founder-level
+questions, pre-computed aggregates cover the vast majority of use cases.
 
 **Malformed tool-call recovery.** Llama 3.3 occasionally generates tool calls in an XML-like format
 (`<function=name {...}>`) instead of the expected JSON structure. Rather than failing, the agent
@@ -61,7 +64,7 @@ evaluator to test with their preferred provider.
 ## 4. What I Would Improve With More Time
 
 - Add chart/visualization generation (matplotlib or plotly) for trend data
-- Implement semantic caching with TTL to reduce API calls for repeated questions
+- Implement semantic caching with TTL to reduce API calls for repeated questions across sessions
 - Add Monday.com MCP server integration for a standardized tool protocol
 - Build a feedback loop where the agent learns from corrected answers
 - Add authentication so the hosted prototype doesn't require sidebar key entry
