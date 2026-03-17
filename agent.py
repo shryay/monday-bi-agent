@@ -16,36 +16,19 @@ from data_processor import DealsProcessor, WorkOrdersProcessor, cross_board_summ
 # ===================================================================== #
 
 SYSTEM_PROMPT = """\
-You are a senior Business Intelligence analyst at Skylark Drones, a leading drone
-technology company in India.  You answer questions from the founders and executive
-team with precision, insight, and actionable recommendations.
+You are a BI analyst at Skylark Drones (India). Answer founders' questions with precision and insight.
 
-**Tools at your disposal** (each makes a LIVE Monday.com API call):
-1. query_deals_board  – pipeline, deal values, stages, sectors, win rates
+Tools (each makes a LIVE Monday.com API call):
+1. query_deals_board – pipeline, deal values, stages, sectors, win rates
 2. query_work_orders_board – revenue, billing, collections, execution status
 3. cross_board_analysis – combined insights across both boards
 
-**Rules you must follow:**
-1. ALWAYS call tools to fetch live data before answering.  Never fabricate numbers.
-2. Deliver INSIGHTS, not raw dumps:
-   - BAD: "There are 106 Mining deals."
-   - GOOD: "Mining leads your pipeline with 106 deals (31% of total), but the
-     33% dead-deal rate signals that early qualification needs tightening."
-3. Mention data-quality caveats when they affect the answer (missing values,
-   incomplete records).
-4. If a question is ambiguous, ask ONE clarifying question rather than guessing.
-5. Support follow-up questions by referencing earlier conversation context.
-6. Format money as ₹ X.XX Cr / ₹ X.XX L.
-7. Highlight **risks**, **opportunities**, and **recommendations**.
-8. Keep answers concise — executives value brevity with depth available on request.
-
-**Domain context:**
-• Sectors: Mining, Renewables, Railways, Powerline, Construction, Others, DSP, Tender
-• Deal stages (A→O): Lead → Sales-Qualified → Demo → Feasibility → Proposal →
-  Negotiations → Won → WO Received → POC → Invoice → Accrued → Lost → On Hold →
-  Not Relevant
-• Deal statuses: Open, Won, Dead, On Hold
-• Work order statuses: Completed, Ongoing, Not Started, Pause/struck, Partial
+Rules:
+1. ALWAYS call tools first. Never fabricate numbers.
+2. Deliver INSIGHTS, not raw data. Highlight risks, opportunities, recommendations.
+3. Note data-quality caveats when relevant.
+4. If ambiguous, ask ONE clarifying question.
+5. Format money as ₹ X.XX Cr / ₹ X.XX L. Keep answers concise.
 """
 
 # ===================================================================== #
@@ -170,10 +153,33 @@ class BIAgent:
         self.wo_board_id = wo_board_id
         self.model = model
         self.traces: List[Dict[str, Any]] = []
+        self._deals_cache = None
+        self._wo_cache = None
 
     # ------------------------------------------------------------------ #
     #  Tool execution                                                      #
     # ------------------------------------------------------------------ #
+
+    MAX_TOOL_CHARS = 6000
+
+    def _truncate(self, text: str) -> str:
+        if len(text) <= self.MAX_TOOL_CHARS:
+            return text
+        return text[: self.MAX_TOOL_CHARS] + "\n\n[...data truncated for token efficiency]"
+
+    def _fetch_deals(self):
+        if self._deals_cache is not None:
+            return self._deals_cache
+        _, df = self.monday.fetch_board_items(self.deals_board_id)
+        self._deals_cache = df
+        return df
+
+    def _fetch_work_orders(self):
+        if self._wo_cache is not None:
+            return self._wo_cache
+        _, df = self.monday.fetch_board_items(self.wo_board_id)
+        self._wo_cache = df
+        return df
 
     def _run_tool(self, name: str, args: Dict[str, Any]) -> str:
         self.monday.clear_action_log()
@@ -181,7 +187,7 @@ class BIAgent:
         try:
             if name == "query_deals_board":
                 self.traces.append({"tool": name, "params": args, "status": "running"})
-                _, df = self.monday.fetch_board_items(self.deals_board_id)
+                df = self._fetch_deals()
                 result = DealsProcessor(df).get_summary(
                     sector_filter=args.get("sector_filter"),
                     status_filter=args.get("status_filter"),
@@ -193,11 +199,11 @@ class BIAgent:
                     rows=len(df),
                     api_calls=self.monday.get_action_log(),
                 )
-                return result
+                return self._truncate(result)
 
             if name == "query_work_orders_board":
                 self.traces.append({"tool": name, "params": args, "status": "running"})
-                _, df = self.monday.fetch_board_items(self.wo_board_id)
+                df = self._fetch_work_orders()
                 result = WorkOrdersProcessor(df).get_summary(
                     sector_filter=args.get("sector_filter"),
                     execution_status_filter=args.get("execution_status_filter"),
@@ -208,12 +214,12 @@ class BIAgent:
                     rows=len(df),
                     api_calls=self.monday.get_action_log(),
                 )
-                return result
+                return self._truncate(result)
 
             if name == "cross_board_analysis":
                 self.traces.append({"tool": name, "params": args, "status": "running"})
-                _, d_df = self.monday.fetch_board_items(self.deals_board_id)
-                _, w_df = self.monday.fetch_board_items(self.wo_board_id)
+                d_df = self._fetch_deals()
+                w_df = self._fetch_work_orders()
                 result = cross_board_summary(
                     d_df,
                     w_df,
@@ -226,7 +232,7 @@ class BIAgent:
                     wo_rows=len(w_df),
                     api_calls=self.monday.get_action_log(),
                 )
-                return result
+                return self._truncate(result)
 
             return f"Unknown tool '{name}'."
 
@@ -250,7 +256,7 @@ class BIAgent:
         self.traces = []
 
         messages: List[Dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
-        for msg in conversation_history[-10:]:
+        for msg in conversation_history[-4:]:
             messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": user_message})
 
