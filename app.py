@@ -295,17 +295,16 @@ if prompt:
 
             except Exception as exc:
                 exc_str = str(exc)
-                if "rate_limit" in exc_str or "429" in exc_str:
+                if "rate_limit" in exc_str or ("429" in exc_str and "token" in exc_str.lower()):
                     err = (
-                        "**Rate limit reached** on the current AI provider's free tier. "
+                        f"**Rate limit reached** on **{_provider}** free tier. "
                         "You can:\n"
                         "- Wait a few minutes and try again\n"
                         "- Switch to a different provider/model in the sidebar\n"
-                        "- Use the Gemini provider as an alternative"
                     )
                     st.warning(err)
                 else:
-                    err = f"Something went wrong: {exc}"
+                    err = f"**{_provider}** error: {exc}"
                     st.error(err)
                 st.session_state.messages.append(
                     {"role": "assistant", "content": err, "traces": []}
