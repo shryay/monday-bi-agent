@@ -114,9 +114,14 @@ PROVIDERS = {
         "models": ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama-3.1-8b-instant"],
         "env_key": "GROQ_API_KEY",
     },
+    "OpenRouter (Free)": {
+        "base_url": "https://openrouter.ai/api/v1",
+        "models": ["meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen3-32b:free", "deepseek/deepseek-r1:free"],
+        "env_key": "OPENROUTER_API_KEY",
+    },
     "Google Gemini (Free)": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "models": ["gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-2.0-flash-lite"],
+        "models": ["gemini-2.0-flash", "gemini-2.0-flash-lite"],
         "env_key": "GEMINI_API_KEY",
     },
     "OpenAI (Paid)": {
